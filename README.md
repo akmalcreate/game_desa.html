@@ -8,16 +8,18 @@ perduli lingkungan tanpa sampah
     <title>Kurir Sampah Desa: Tiny Planet</title>
     <style>
         body { margin: 0; padding: 0; background-color: #b3e5fc; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
-        #ui { position: absolute; top: 20px; background: rgba(255, 255, 255, 0.85); padding: 10px 20px; border-radius: 30px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        canvas { border-radius: 50%; box-shadow: 0 20px 40px rgba(0,0,0,0.3); background: #81c784; }
-        .kontrol { margin-top: 15px; color: #555; font-size: 14px; }
+        #ui { position: absolute; top: 20px; background: rgba(255, 255, 255, 0.85); padding: 10px 20px; border-radius: 30px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.1); z-index: 10; }
+        canvas { border-radius: 50%; box-shadow: 0 20px 40px rgba(0,0,0,0.3); background: #a5d6a7; }
+        .kontrol { margin-top: 15px; color: #333; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #fff; }
     </style>
 </head>
 <body>
 
     <div id="ui">🗑️ Sampah: <span id="skor">0</span></div>
+    
     <canvas id="planetCanvas" width="500" height="500"></canvas>
-    <div class="kontrol">Tekan **A / D** atau **Panah Kiri / Kanan** untuk memutar desa</div>
+    
+    <div class="kontrol">Gunakan **Tombol A / D** atau **Panah Kiri / Kanan**</div>
 
     <script>
         const canvas = document.getElementById("planetCanvas");
@@ -26,31 +28,73 @@ perduli lingkungan tanpa sampah
 
         let skor = 0;
         let sudutDunia = 0;
-        const kecepatanRotasi = 0.04;
+        const kecepatanRotasi = 0.05;
         const radiusPlanet = 200;
         const pusatX = 250;
         const pusatY = 430; // Pusat rotasi di bawah layar
 
         const keys = {};
 
-        // --- UPDATE: DATA KARAKTER 2D (Sprite Pasukan Oranye) ---
-        const spriteKarakter = new Image();
-        // Menggunakan data URI Base64 untuk memastikan karakter langsung muncul tanpa file eksternal.
-        spriteKarakter.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AYbCxI7u73RhQAAAG1JREFUWMPtlLERgCAMRb8Le7gGu7gK67gGu7gGe7gGi7gCC3mBBO7gKEnAnwby8gshgYgI7uAsS9m7vWe9XNlZ9vK9vGdfeUov9Zis9PZg6Sg9g9X8g9Vcc9V6b7X+mOtc67S/9wNkiLgXidgHe9gS7GFLsAd7eAArXwshf9672QAAAABJRU5ErkJggg==";
-
-        // Data Objek Desa (Sama seperti screenshotmu)
+        // Data Objek Desa (Rumah, Pohon, Sampah)
         const objekDesa = [
-            { sudut: 0.2, tipe: 'rumah', warna: '#e57373' }, // Rumah pink
+            { sudut: 0.2, tipe: 'rumah', warna: '#e57373' }, // Rumah pink (dari screenshot)
             { sudut: 1.0, tipe: 'sampah', emoji: '🍂', diambil: false }, // Daun
             { sudut: 1.5, tipe: 'pohon' },
             { sudut: 2.3, tipe: 'sampah', emoji: '🛍️', diambil: false }, // Kantong
             { sudut: 3.1, tipe: 'posronda' },
             { sudut: 4.4, tipe: 'sampah', emoji: '🧃', diambil: false }, // Kotak minum
-            { sudut: 5.0, tipe: 'rumah', warna: '#64b5f6' } // Rumah biru
+            { sudut: 5.0, tipe: 'rumah', warna: '#64b5f6' }, // Rumah biru
+            { sudut: 5.7, tipe: 'sampah', emoji: '🍾', diambil: false }  // Botol
         ];
 
         window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
         window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+        // --- FUNGSI UNTUK MENGGAMBAR KARAKTER 2D (VEKTOR MURNI) ---
+        function drawPlayer(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Kaki (Celana Oranye)
+            ctx.fillStyle = "#ff5722";
+            ctx.fillRect(-6, 0, 4, 8); // Kaki kiri
+            ctx.fillRect(2, 0, 4, 8);  // Kaki kanan
+
+            // Badan (Baju Oranye)
+            ctx.fillStyle = "#ff7043";
+            ctx.fillRect(-8, -12, 16, 14);
+            
+            // Sabuk Hitam
+            ctx.fillStyle = "#333";
+            ctx.fillRect(-8, -2, 16, 2);
+
+            // Kepala (Warna Kulit)
+            ctx.fillStyle = "#ffcc80";
+            ctx.beginPath();
+            ctx.arc(0, -18, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Mata (Hitam)
+            ctx.fillStyle = "#000";
+            ctx.fillRect(-3, -20, 2, 2);
+            ctx.fillRect(1, -20, 2, 2);
+
+            // Topi Caping (Cokelat)
+            ctx.fillStyle = "#a1887f";
+            ctx.beginPath();
+            ctx.moveTo(-12, -22); // Pinggir kiri
+            ctx.lineTo(0, -32);   // Puncak
+            ctx.lineTo(12, -22);  // Pinggir kanan
+            ctx.closePath();
+            ctx.fill();
+            
+            // Detail Topi (Garis)
+            ctx.strokeStyle = "#8d6e63";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.restore();
+        }
 
         function update() {
             // Kontrol: A/D memutar dunia di bawah karakter
@@ -84,16 +128,16 @@ perduli lingkungan tanpa sampah
         }
 
         function draw() {
-            ctx.fillStyle = "#a5d6a7";
+            ctx.fillStyle = "#a5d6a7"; // Warna langit/latar
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // 1. Gambar Inti Planet
             ctx.beginPath();
             ctx.arc(pusatX, pusatY, radiusPlanet, 0, Math.PI * 2);
-            ctx.fillStyle = "#81c784";
+            ctx.fillStyle = "#81c784"; // Warna tanah
             ctx.fill();
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = "#5d4037";
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = "#5d4037"; // Warna pinggiran tanah
             ctx.stroke();
 
             // 2. Gambar Objek Desa yang Berputar
@@ -104,7 +148,8 @@ perduli lingkungan tanpa sampah
                 let posX = pusatX + Math.cos(sudutRender) * radiusPlanet;
                 let posY = pusatY + Math.sin(sudutRender) * radiusPlanet;
 
-                if (posY < pusatY + 50) {
+                // Hanya gambar objek yang terlihat di area atas planet
+                if (posY < pusatY + 80) {
                     ctx.save();
                     ctx.translate(posX, posY);
                     ctx.rotate(sudutRender + Math.PI / 2);
@@ -120,27 +165,22 @@ perduli lingkungan tanpa sampah
                         ctx.fillStyle = "#5d4037"; ctx.fillRect(-4, -15, 8, 15); // Batang
                         ctx.fillStyle = "#2e7d32"; ctx.beginPath(); ctx.arc(0, -25, 15, 0, Math.PI * 2); ctx.fill(); // Daun
                     } else if (obj.tipe === 'sampah') {
-                        ctx.font = "20px Arial"; ctx.fillText(obj.emoji, -10, -10);
+                        ctx.font = "24px Arial"; ctx.fillText(obj.emoji, -12, -12);
                     } else if (obj.tipe === 'posronda') {
                         ctx.fillStyle = "#795548"; ctx.fillRect(-15, -25, 30, 25);
+                        ctx.fillStyle = "#3e2723"; ctx.fillRect(-18, -25, 36, 5);
                     }
 
                     ctx.restore();
                 }
             });
 
-            // --- 3. UPDATE: GAMBAR KARAKTER ---
-            // Karakter di-draw paling akhir agar menimpa planet dan objek.
-            // Posisinya dikunci tepat di bagian tengah paling atas planet.
+            // --- 3. GAMBAR KARAKTER (DI ATAS PLANET) ---
+            // Karakter digambar terakhir agar menimpa planet dan objek.
             const charX = pusatX;
-            const charY = pusatY - radiusPlanet - 15; // Berdiri di permukaan tanah
+            const charY = pusatY - radiusPlanet; // Berdiri tepat di atas tanah
 
-            // Jika sprite sudah ter-load, gambar. Jika tidak, gambar lingkaran oranye sebagai backup.
-            if (spriteKarakter.complete) {
-                ctx.drawImage(spriteKarakter, charX - 16, charY - 16, 32, 32);
-            } else {
-                ctx.beginPath(); ctx.arc(charX, charY, 15, 0, Math.PI * 2); ctx.fillStyle = "#ff5722"; ctx.fill();
-            }
+            drawPlayer(charX, charY);
         }
 
         function gameLoop() {
@@ -149,9 +189,8 @@ perduli lingkungan tanpa sampah
             requestAnimationFrame(gameLoop);
         }
 
-        // Jalankan game saat semua siap
-        spriteKarakter.onload = () => { gameLoop(); };
-        spriteKarakter.onerror = () => { gameLoop(); }; // Jalankan juga jika sprite gagal load
+        // Jalankan game
+        gameLoop();
     </script>
 </body>
 </html>
