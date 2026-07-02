@@ -5,225 +5,202 @@ perduli lingkungan tanpa sampah
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Petualangan Bersih Desa</title>
+    <title>Kurir Desa Indonesia - Efek Tiny Planet</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #a3d9c9;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #b3e5fc; /* Warna langit */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            height: 100vh;
+            font-family: sans-serif;
             overflow: hidden;
         }
-        #gameUi {
-            color: #2c3e50;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-align: center;
-            background: rgba(255, 255, 255, 0.8);
+        #ui {
+            position: absolute;
+            top: 20px;
+            background: rgba(255, 255, 255, 0.85);
             padding: 10px 20px;
-            border-radius: 20px;
-            box-shadow: 0 4px 6px id=rgba(0,0,0,0.1);
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
         canvas {
-            border: 6px solid #4a3728;
-            border-radius: 15px;
-            background-color: #81c784; /* Warna rumput desa */
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            max-width: 100%;
+            border-radius: 50%; /* Membuat canvas bulat seperti planet */
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            background: #81c784;
         }
-        .instruksi {
+        .kontrol {
             margin-top: 15px;
             color: #555;
             font-size: 14px;
-            text-align: center;
-            max-width: 400px;
-            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <div id="gameUi">
-        🗑️ Sampah Terkumpul: <span id="skor">0</span> / 10 | 🏡 Desa Sukamaju
-    </div>
+    <div id="ui">🗑️ Sampah Organik & Plastik: <span id="skor">0</span></div>
+    
+    <!-- Canvas bulat melambangkan planet/desa kecil -->
+    <canvas id="planetCanvas" width="500" height="500"></canvas>
 
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-
-    <div class="instruksi">
-        <strong>Cara Bermain:</strong><br>
-        Gunakan tombol <b>Panah (Arrow Keys)</b> atau <b>W, A, S, D</b> di keyboard untuk keliling desa dan memungut sampah yang berserakan!
-    </div>
+    <div class="kontrol">Tekan **Panah Kiri / Kanan** atau **A / D** untuk memutar desa</div>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
+        const canvas = document.getElementById("planetCanvas");
         const ctx = canvas.getContext("2d");
-        const skorElemen = document.getElementById("skor");
+        const skorEl = document.getElementById("skor");
 
-        // State Game
         let skor = 0;
-        const totalSampah = 10;
+        let sudutDunia = 0; // Sudut rotasi peta desa
+        const kecepatanRotasi = 0.04;
+        const radiusPlanet = 200;
+        const pusatX = 250;
+        const pusatY = 430; // Pusat rotasi di bawah layar untuk efek melengkung
 
-        // Karakter Pemain (Pak/Bu RT)
-        const pemain = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 15,
-            speed: 4,
-            warna: "#ff7043" // Baju oranye khas petugas kebersihan/gotong royong
-        };
+        const keys = {};
 
-        // Ornamen Desa (Rumah, Pohon, Gapura)
-        const elemenDesa = [
-            { x: 100, y: 100, tipe: 'rumah', warna: '#e57373' },
-            { x: 350, y: 80, tipe: 'rumah', warna: '#64b5f6' },
-            { x: 650, y: 120, tipe: 'rumah', warna: '#fff176' },
-            { x: 200, y: 450, tipe: 'pohon' },
-            { x: 600, y: 400, tipe: 'pohon' },
-            { x: 50, y: 300, tipe: 'pohon' },
-            { x: 400, y: 520, tipe: 'posronda' }
+        // 1. Sprite Karakter 2D (Base64) - Menghadap ke depan/samping
+        const spriteKarakter = new Image();
+        spriteKarakter.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AYbCxI7u73RhQAAAG1JREFUWMPtlLERgCAMRb8Le7gGu7gK67gGu7gGe7gGi7gCC3mBBO7gKEnAnwby8gshgYgI7uAsS9m7vWe9XNlZ9vK9vGdfeUov9Zis9PZg6Sg9g9X8g9Vcc9V6b7X+mOtc67S/9wNkiLgXidgHe9gS7GFLsAd7eAArXwshf9672QAAAABJRU5ErkJggg==";
+
+        // 2. Data Objek Desa (Rumah Indonesia, Pohon, Sampah) yang tersebar di sekeliling planet (360 derajat)
+        const objekDesa = [
+            { sudut: 0, tipe: 'rumah', warna: '#e57373', nama: 'Rumah Pak RT' },
+            { sudut: 0.5, tipe: 'sampah', emoji: '🍾', diambil: false },
+            { sudut: 1.2, tipe: 'pohon' },
+            { sudut: 1.8, tipe: 'rumah', warna: '#81c784', nama: 'Warung Bu Edi' },
+            { sudut: 2.3, tipe: 'sampah', emoji: '🛍️', diambil: false },
+            { sudut: 3.1, tipe: 'posronda' },
+            { sudut: 3.8, tipe: 'pohon' },
+            { sudut: 4.4, tipe: 'sampah', emoji: '🍂', diambil: false },
+            { sudut: 5.0, tipe: 'rumah', warna: '#64b5f6', nama: 'Rumah Warga' },
+            { sudut: 5.7, tipe: 'sampah', emoji: '🧃', diambil: false }
         ];
 
-        // Daftar Sampah
-        let daftarSampah = [];
-        const jenisSampah = [
-            { teks: "🍾", nama: "Botol" },
-            { teks: "🛍️", nama: "Kresek" },
-            { teks: "🍂", nama: "Daun" }
-        ];
+        window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-        // Tombol Kontrol
-        const tombol = {};
-
-        // Inisialisasi Sampah secara acak di peta
-        function gantiPosisiSampah(sampah) {
-            sampah.x = Math.random() * (canvas.width - 60) + 30;
-            sampah.y = Math.random() * (canvas.height - 60) + 30;
-            // Memastikan sampah tidak muncul tepat di atas rumah
-            elemenDesa.forEach(el => {
-                let dist = Math.hypot(sampah.x - el.x, sampah.y - el.y);
-                if (dist < 50) {
-                    sampah.x += 60;
-                }
-            });
-        }
-
-        for (let i = 0; i < totalSampah; i++) {
-            let info = jenisSampah[Math.floor(Math.random() * jenisSampah.length)];
-            let sampah = { x: 0, y: 0, info: info };
-            gantiPosisiSampah(sampah);
-            daftarSampah.push(sampah);
-        }
-
-        // Event Listener Keyboard
-        window.addEventListener("keydown", e => tombol[e.key.toLowerCase()] = true);
-        window.addEventListener("keyup", e => tombol[e.key.toLowerCase()] = false);
-
-        // Update Logika Game
         function update() {
-            // Pergerakan pemain
-            if (tombol["arrowup"] || tombol["w"]) pemain.y -= pemain.speed;
-            if (tombol["arrowdown"] || tombol["s"]) pemain.y += pemain.speed;
-            if (tombol["arrowleft"] || tombol["a"]) pemain.x -= pemain.speed;
-            if (tombol["arrowright"] || tombol["d"]) pemain.x += pemain.speed;
+            // Karakter diam di tengah atas planet, dunianya yang berputar di bawah kaki karakter
+            if (keys["arrowleft"] || keys["a"]) {
+                sudutDunia -= kecepatanRotasi;
+            }
+            if (keys["arrowright"] || keys["d"]) {
+                sudutDunia += kecepatanRotasi;
+            }
 
-            // Batas dinding canvas agar tidak keluar desa
-            if (pemain.x < pemain.radius) pemain.x = pemain.radius;
-            if (pemain.x > canvas.width - pemain.radius) pemain.x = canvas.width - pemain.radius;
-            if (pemain.y < pemain.radius) pemain.y = pemain.radius;
-            if (pemain.y > canvas.height - pemain.radius) pemain.y = canvas.height - pemain.radius;
+            // Normalisasi sudut dunia agar berada di kisaran 0 hingga 2*PI
+            if (sudutDunia < 0) sudutDunia += Math.PI * 2;
+            if (sudutDunia > Math.PI * 2) sudutDunia -= Math.PI * 2;
 
-            // Cek tabrakan dengan sampah (Pungut)
-            daftarSampah.forEach(sampah => {
-                let jarak = Math.hypot(pemain.x - sampah.x, pemain.y - sampah.y);
-                if (jarak < pemain.radius + 15) {
-                    // Pindahkan sampah ke lokasi baru (seolah-olah muncul sampah baru)
-                    gantiPosisiSampah(sampah);
-                    skor++;
-                    skorElemen.innerText = skor;
+            // Logika Pungut Sampah (Karakter berada di sudut posisi paling atas planet, yaitu -Math.PI / 2)
+            const sudutKarakter = -Math.PI / 2;
+            
+            objekDesa.forEach(obj => {
+                if (obj.tipe === 'sampah' && !obj.diambil) {
+                    // Hitung posisi absolut objek saat dunia berputar
+                    let sudutAbsolut = obj.sudut + sudutDunia;
+                    // Normalisasi sudut absolut
+                    sudutAbsolut = Math.atan2(Math.sin(sudutAbsolut), Math.cos(sudutAbsolut));
+                    
+                    // Jika objek berada sangat dekat dengan posisi karakter di atas planet
+                    if (Math.abs(sudutAbsolut - sudutKarakter) < 0.15) {
+                        obj.diambil = true;
+                        skor++;
+                        skorEl.innerText = skor;
+                        
+                        // Respawn sampah di tempat lain setelah beberapa saat
+                        setTimeout(() => {
+                            obj.diambil = false;
+                            obj.sudut = Math.random() * Math.PI * 2;
+                        }, 4000);
+                    }
                 }
             });
         }
 
-        // Menggambar Grafis ke Layar
         function draw() {
-            // Bersihkan layar dengan warna dasar rumput desa
-            ctx.fillStyle = "#81c784";
+            // Bersihkan canvas dengan warna tanah/rumput planet
+            ctx.fillStyle = "#a5d6a7";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Gambar Jalan Setapak Desa
-            ctx.fillStyle = "#cfd8dc";
-            ctx.fillRect(0, canvas.height / 2 - 25, canvas.width, 50);
-            ctx.fillRect(canvas.width / 2 - 25, 0, 50, canvas.height);
+            // Gambar Lingkaran Inti Planet di bagian bawah canvas
+            ctx.beginPath();
+            ctx.arc(pusatX, pusatY, radiusPlanet, 0, Math.PI * 2);
+            ctx.fillStyle = "#81c784";
+            ctx.fill();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = "#5d4037";
+            ctx.stroke();
 
-            // Gambar Ornamen Desa (Rumah & Pohon)
-            elemenDesa.forEach(el => {
-                if (el.tipe === 'rumah') {
-                    // Tembok Rumah
-                    ctx.fillStyle = el.warna;
-                    ctx.fillRect(el.x - 30, el.y - 20, 60, 50);
-                    // Atap Rumah
-                    ctx.fillStyle = "#d84315";
-                    ctx.beginPath();
-                    ctx.moveTo(el.x - 40, el.y - 20);
-                    ctx.lineTo(el.x, el.y - 50);
-                    ctx.lineTo(el.x + 40, el.y - 20);
-                    ctx.fill();
-                } else if (el.tipe === 'pohon') {
-                    // Batang
-                    ctx.fillStyle = "#5d4037";
-                    ctx.fillRect(el.x - 5, el.y, 10, 30);
-                    // Daun
-                    ctx.fillStyle = "#2e7d32";
-                    ctx.beginPath();
-                    ctx.arc(el.x, el.y - 10, 20, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (el.tipe === 'posronda') {
-                    // Pos Ronda Tradisional
-                    ctx.fillStyle = "#8d6e63";
-                    ctx.fillRect(el.x - 25, el.y - 20, 50, 40);
-                    ctx.fillStyle = "#4e342e";
-                    ctx.fillRect(el.x - 20, el.y - 40, 40, 20); // Atap ijuk
+            // Gambar Objek-Objek Desa yang Berputar mengelilingi planet
+            objekDesa.forEach(obj => {
+                if (obj.tipe === 'sampah' && obj.diambil) return;
+
+                // Hitung posisi (X, Y) di permukaan lingkaran berdasarkan rotasi dunia
+                let sudutRender = obj.sudut + sudutDunia;
+                let posX = pusatX + Math.cos(sudutRender) * radiusPlanet;
+                let posY = pusatY + Math.sin(sudutRender) * radiusPlanet;
+
+                // Hanya gambar objek yang terlihat di area atas planet agar tidak membebani memori
+                if (posY < pusatY + 50) {
+                    ctx.save();
+                    ctx.translate(posX, posY);
+                    // Putar objek agar berdiri tegak tegak lurus dengan permukaan tanah bola
+                    ctx.rotate(sudutRender + Math.PI / 2);
+
+                    if (obj.tipe === 'rumah') {
+                        // Rumah kecil khas 2D
+                        ctx.fillStyle = obj.warna;
+                        ctx.fillRect(-20, -30, 40, 30);
+                        ctx.fillStyle = "#b94a24"; // Atap
+                        ctx.beginPath();
+                        ctx.moveTo(-25, -30);
+                        ctx.lineTo(0, -45);
+                        ctx.lineTo(25, -30);
+                        ctx.fill();
+                    } else if (obj.tipe === 'pohon') {
+                        ctx.fillStyle = "#5d4037"; // Batang
+                        ctx.fillRect(-4, -15, 8, 15);
+                        ctx.fillStyle = "#2e7d32"; // Daun bulat
+                        ctx.beginPath();
+                        ctx.arc(0, -25, 15, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (obj.tipe === 'posronda') {
+                        ctx.fillStyle = "#795548";
+                        ctx.fillRect(-15, -25, 30, 25);
+                        ctx.fillStyle = "#3e2723";
+                        ctx.fillRect(-18, -25, 36, 5);
+                    } else if (obj.tipe === 'sampah') {
+                        ctx.font = "20px Arial";
+                        ctx.fillText(obj.emoji, -10, -10);
+                    }
+
+                    ctx.restore();
                 }
             });
 
-            // Gambar Sampah
-            ctx.font = "20px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            daftarSampah.forEach(sampah => {
-                ctx.fillText(sampah.info.teks, sampah.x, sampah.y);
-            });
+            // 3. Gambar Karakter Utama 2D tepat di bagian paling atas planet (Kamera Mengunci Karakter)
+            const charX = pusatX;
+            const charY = pusatY - radiusPlanet - 15; // Berdiri tepat di atas tanah lingkaran
 
-            // Gambar Pemain (Karakter Utama)
-            ctx.beginPath();
-            ctx.arc(pemain.x, pemain.x, pemain.radius, 0, Math.PI * 2); // Kepala/Badan atas
-            ctx.fillStyle = pemain.warna;
-            ctx.fill();
-            ctx.closePath();
-            
-            // Topi Caping Petani / Karakter Desa
-            ctx.beginPath();
-            ctx.fillStyle = "#ffb74d";
-            ctx.arc(pemain.x, pemain.y, pemain.radius + 2, Math.PI, 0);
-            ctx.fill();
-            ctx.closePath();
+            ctx.drawImage(spriteKarakter, charX - 16, charY - 16, 32, 32);
         }
 
-        // Game Loop
         function gameLoop() {
             update();
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // Jalankan Game
-        gameLoop();
+        // Jalankan game setelah aset gambar siap
+        spriteKarakter.onload = () => {
+            gameLoop();
+        };
     </script>
 </body>
 </html>
